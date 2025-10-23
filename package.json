@@ -1,0 +1,94 @@
+{
+  "name": "@ldesign/deps",
+  "version": "0.1.0",
+  "description": "LDesign 依赖管理工具 - 依赖分析、更新检查、版本管理",
+  "keywords": [
+    "ldesign",
+    "dependencies",
+    "package-manager",
+    "npm",
+    "pnpm",
+    "yarn",
+    "version-management"
+  ],
+  "author": "LDesign Team",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js",
+      "require": "./dist/cli/index.cjs"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js",
+      "require": "./dist/core/index.cjs"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js",
+      "require": "./dist/types/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@ldesign/kit": "workspace:*",
+    "npm-check-updates": "^16.14.12",
+    "pacote": "^17.0.6",
+    "semver": "^7.5.4",
+    "dependency-tree": "^10.0.9",
+    "depcheck": "^1.4.7",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "commander": "^12.0.0",
+    "cli-table3": "^0.6.3",
+    "boxen": "^7.1.1",
+    "inquirer": "^9.2.0",
+    "fast-glob": "^3.3.2",
+    "fs-extra": "^11.2.0",
+    "execa": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "@types/semver": "^7.5.6",
+    "@types/inquirer": "^9.0.7",
+    "@types/fs-extra": "^11.0.4",
+    "typescript": "^5.7.3",
+    "tsup": "^8.0.0",
+    "vitest": "^1.6.1",
+    "rimraf": "^5.0.5"
+  },
+  "bin": {
+    "ldesign-deps": "./bin/cli.js",
+    "ldeps": "./bin/cli.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
+
+
