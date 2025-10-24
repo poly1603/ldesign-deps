@@ -1,0 +1,24 @@
+{
+  "name": "monorepo-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo 使用示例",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "deps:check": "ldeps check --parallel",
+    "deps:audit": "ldeps audit --level high",
+    "deps:analyze": "ldeps analyze",
+    "deps:workspace": "ldeps workspace --scan",
+    "deps:conflicts": "ldeps workspace --analyze",
+    "deps:interactive": "ldeps interactive",
+    "deps:tree": "ldeps tree --depth 3",
+    "deps:graph": "ldeps graph --format mermaid --output deps-graph.md"
+  },
+  "devDependencies": {
+    "@ldesign/deps": "^0.1.0"
+  }
+}
+

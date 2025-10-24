@@ -1,7 +1,12 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/cli/index.ts'],
+  entry: [
+    'src/index.ts',
+    'src/cli/index.ts',
+    'src/core/index.ts',
+    'src/types/index.ts'
+  ],
   format: ['esm', 'cjs'],
   dts: true,
   splitting: false,
@@ -9,7 +14,14 @@ export default defineConfig({
   clean: true,
   treeshake: true,
   minify: false,
-  external: ['@ldesign/kit', 'pacote', 'semver', 'depcheck']
+  external: [
+    '@ldesign/kit',
+    'pacote',
+    'semver',
+    'depcheck',
+    'p-limit',
+    'cli-progress'
+  ]
 })
 
 

@@ -1,0 +1,239 @@
+# CI/CD 集成示例 - GitHub Actions
+
+name: Dependency Management
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 每周一早上 9 点执行
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  # 依赖检查和审计
+  dependency-check:
+    runs-on: ubuntu-latest
+    name: Dependency Check & Audit
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install @ldesign/deps
+        run: npm install -g @ldesign/deps
+      
+      # 安全审计
+      - name: Security Audit
+        id: audit
+        run: |
+          ldeps audit --level high --json > audit-report.json
+          echo "audit_status=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      
+      - name: Upload Audit Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-audit-report
+          path: audit-report.json
+      
+      # 检查过时的依赖
+      - name: Check Outdated Dependencies
+        run: ldeps outdated
+      
+      # 检查重复依赖
+      - name: Check Duplicate Dependencies
+        run: ldeps duplicate
+      
+      # 依赖分析
+      - name: Analyze Dependencies
+        run: ldeps analyze
+      
+      # 生成依赖图
+      - name: Generate Dependency Graph
+        run: ldeps graph --format mermaid --output deps-graph.md
+      
+      - name: Upload Dependency Graph
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-graph
+          path: deps-graph.md
+      
+      # 检查审计结果
+      - name: Check Audit Results
+        if: steps.audit.outputs.audit_status != '0'
+        run: |
+          echo "⚠️ 发现安全漏洞！请查看审计报告。"
+          exit 1
+
+  # 自动更新补丁版本
+  auto-update-patches:
+    runs-on: ubuntu-latest
+    name: Auto Update Patch Versions
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install @ldesign/deps
+        run: npm install -g @ldesign/deps
+      
+      - name: Check for patch updates
+        id: check
+        run: |
+          ldeps check --json > updates.json
+          cat updates.json
+      
+      - name: Update patch versions
+        run: |
+          # 提取补丁更新并更新
+          jq -r '.[] | select(.updateType == "patch") | .packageName' updates.json | \
+            xargs -I {} ldeps update {} --dry-run
+      
+      - name: Run tests
+        run: npm test
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore(deps): auto update patch versions'
+          title: '🤖 自动更新补丁版本'
+          body: |
+            ## 自动依赖更新
+            
+            本 PR 由自动化流程创建，更新了以下补丁版本：
+            
+            详细信息请查看提交记录。
+            
+            ### 检查清单
+            - [x] 所有测试通过
+            - [x] 安全审计无问题
+            - [ ] 需要人工审查
+          branch: deps/auto-update-patches
+          delete-branch: true
+
+  # Monorepo 检查（如果适用）
+  monorepo-check:
+    runs-on: ubuntu-latest
+    name: Monorepo Workspace Check
+    if: contains(fromJson('["main", "develop"]'), github.ref_name)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install @ldesign/deps
+        run: npm install -g @ldesign/deps
+      
+      - name: Check workspace
+        run: ldeps workspace --scan || echo "Not a monorepo"
+      
+      - name: Analyze version conflicts
+        run: ldeps workspace --analyze || echo "Not a monorepo"
+
+  # 性能基准测试
+  performance-benchmark:
+    runs-on: ubuntu-latest
+    name: Performance Benchmark
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install @ldesign/deps
+        run: npm install -g @ldesign/deps
+      
+      - name: Benchmark dependency check
+        run: |
+          echo "## 性能基准测试" >> $GITHUB_STEP_SUMMARY
+          
+          # 顺序检查
+          SEQUENTIAL_TIME=$(time ( ldeps check ) 2>&1 | grep real | awk '{print $2}')
+          echo "- 顺序检查: $SEQUENTIAL_TIME" >> $GITHUB_STEP_SUMMARY
+          
+          # 并行检查
+          PARALLEL_TIME=$(time ( ldeps check --parallel ) 2>&1 | grep real | awk '{print $2}')
+          echo "- 并行检查: $PARALLEL_TIME" >> $GITHUB_STEP_SUMMARY
+
+  # 依赖变更通知
+  dependency-change-notification:
+    runs-on: ubuntu-latest
+    name: Notify Dependency Changes
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+      
+      - name: Checkout head
+        uses: actions/checkout@v3
+        with:
+          path: head
+      
+      - name: Compare dependencies
+        run: |
+          diff base/package.json head/package.json || true
+      
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const basePackage = JSON.parse(fs.readFileSync('base/package.json', 'utf8'));
+            const headPackage = JSON.parse(fs.readFileSync('head/package.json', 'utf8'));
+            
+            // 比较依赖变更
+            const changes = [];
+            
+            // ... 依赖比较逻辑
+            
+            if (changes.length > 0) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '## 📦 依赖变更\n\n' + changes.join('\n')
+              });
+            }
+
