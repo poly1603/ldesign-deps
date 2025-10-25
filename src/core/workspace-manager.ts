@@ -12,9 +12,25 @@ import type {
   PackageJson
 } from '../types'
 import { DependencyError, ParseError } from '../types'
+import { DepsErrorCode } from '../constants'
+import { logger } from './logger'
 
 /**
  * Monorepo 工作区管理器 - 管理多包项目的依赖关系
+ * 
+ * 支持的工作区类型：
+ * - pnpm (pnpm-workspace.yaml)
+ * - yarn (package.json workspaces + yarn.lock)
+ * - npm (package.json workspaces)
+ * - lerna (lerna.json)
+ * 
+ * @example
+ * ```ts
+ * const wsManager = new WorkspaceManager()
+ * const workspace = await wsManager.analyzeWorkspace()
+ * console.log(`工作区类型: ${workspace.type}`)
+ * console.log(`包数量: ${workspace.packages.length}`)
+ * ```
  */
 export class WorkspaceManager {
   constructor(private projectDir: string = process.cwd()) { }
@@ -29,7 +45,7 @@ export class WorkspaceManager {
       if (!type) {
         throw new DependencyError(
           '当前项目不是 monorepo 工作区',
-          'NOT_WORKSPACE'
+          DepsErrorCode.WORKSPACE_NOT_FOUND
         )
       }
 
@@ -45,9 +61,10 @@ export class WorkspaceManager {
         phantomDependencies
       }
     } catch (error) {
+      logger.error('工作区分析失败', error)
       throw new DependencyError(
         `工作区分析失败: ${error instanceof Error ? error.message : String(error)}`,
-        'WORKSPACE_ANALYSIS_FAILED',
+        DepsErrorCode.WORKSPACE_ANALYSIS_FAILED,
         error
       )
     }
@@ -83,7 +100,7 @@ export class WorkspaceManager {
         }
       }
     } catch (error) {
-      console.warn('读取 package.json 失败:', error)
+      logger.warn('读取 package.json 失败', error)
     }
 
     return null
@@ -103,54 +120,65 @@ export class WorkspaceManager {
       }
     )
 
+    // 性能优化：一次性读取所有 package.json 文件，避免重复读取
+    const packageContentsMap = new Map<string, PackageJson>()
+
+    // 并行读取所有 package.json 文件
+    await Promise.all(
+      packagePaths.map(async (pkgPath) => {
+        try {
+          const content = await fs.readJSON(pkgPath)
+          packageContentsMap.set(pkgPath, content)
+        } catch (error) {
+          logger.warn(`读取 ${pkgPath} 失败`, error)
+          throw new ParseError(
+            `解析 package.json 失败: ${error instanceof Error ? error.message : String(error)}`,
+            pkgPath,
+            undefined,
+            DepsErrorCode.PARSE_PACKAGE_JSON_FAILED
+          )
+        }
+      })
+    )
+
+    // 收集所有包名用于判断是本地还是外部依赖
+    const allPackageNames = new Set(
+      Array.from(packageContentsMap.values())
+        .map(pkg => pkg.name)
+        .filter((name): name is string => name !== undefined)
+    )
+
     const packages: WorkspacePackage[] = []
 
-    for (const pkgPath of packagePaths) {
-      try {
-        const pkg: PackageJson = await fs.readJSON(pkgPath)
-        const pkgDir = path.dirname(pkgPath)
+    // 处理每个包
+    for (const [pkgPath, pkg] of packageContentsMap.entries()) {
+      const pkgDir = path.dirname(pkgPath)
+      const localDeps: string[] = []
+      const externalDeps: string[] = []
 
-        const localDeps: string[] = []
-        const externalDeps: string[] = []
-
-        const allDeps = {
-          ...pkg.dependencies,
-          ...pkg.devDependencies
-        }
-
-        // 先收集所有包名用于判断是本地还是外部依赖
-        const allPackageNames = new Set(
-          await Promise.all(
-            packagePaths.map(async p => {
-              const content: PackageJson = await fs.readJSON(p)
-              return content.name
-            })
-          )
-        )
-
-        for (const depName of Object.keys(allDeps || {})) {
-          if (allPackageNames.has(depName) || allDeps[depName]?.startsWith('workspace:')) {
-            localDeps.push(depName)
-          } else {
-            externalDeps.push(depName)
-          }
-        }
-
-        packages.push({
-          name: pkg.name || path.basename(pkgDir),
-          version: pkg.version || '0.0.0',
-          path: pkgDir,
-          dependencies: pkg.dependencies || {},
-          devDependencies: pkg.devDependencies || {},
-          localDependencies: localDeps,
-          externalDependencies: externalDeps
-        })
-      } catch (error) {
-        throw new ParseError(
-          `解析 package.json 失败: ${error instanceof Error ? error.message : String(error)}`,
-          pkgPath
-        )
+      const allDeps = {
+        ...pkg.dependencies,
+        ...pkg.devDependencies
       }
+
+      // 分类依赖：本地依赖 vs 外部依赖
+      for (const depName of Object.keys(allDeps || {})) {
+        if (allPackageNames.has(depName) || allDeps[depName]?.startsWith('workspace:')) {
+          localDeps.push(depName)
+        } else {
+          externalDeps.push(depName)
+        }
+      }
+
+      packages.push({
+        name: pkg.name || path.basename(pkgDir),
+        version: pkg.version || '0.0.0',
+        path: pkgDir,
+        dependencies: pkg.dependencies || {},
+        devDependencies: pkg.devDependencies || {},
+        localDependencies: localDeps,
+        externalDependencies: externalDeps
+      })
     }
 
     return packages

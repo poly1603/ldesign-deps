@@ -1,7 +1,7 @@
 {
   "name": "@ldesign/deps",
-  "version": "0.1.0",
-  "description": "LDesign 依赖管理工具 - 依赖分析、更新检查、版本管理",
+  "version": "0.2.0",
+  "description": "LDesign 企业级依赖管理工具 - 依赖分析、安全审计、版本管理、历史追踪、Monorepo 支持",
   "keywords": [
     "ldesign",
     "dependencies",
@@ -9,7 +9,14 @@
     "npm",
     "pnpm",
     "yarn",
-    "version-management"
+    "version-management",
+    "dependency-lock",
+    "dependency-history",
+    "security-audit",
+    "monorepo",
+    "dependency-analysis",
+    "typescript",
+    "enterprise"
   ],
   "author": "LDesign Team",
   "license": "MIT",
@@ -34,6 +41,16 @@
       "types": "./dist/types/index.d.ts",
       "import": "./dist/types/index.js",
       "require": "./dist/types/index.cjs"
+    },
+    "./constants": {
+      "types": "./dist/constants/index.d.ts",
+      "import": "./dist/constants/index.js",
+      "require": "./dist/constants/index.cjs"
+    },
+    "./helpers": {
+      "types": "./dist/helpers/index.d.ts",
+      "import": "./dist/helpers/index.js",
+      "require": "./dist/helpers/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -47,13 +64,21 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch",
+    "build:watch": "tsup --watch",
+    "dev": "pnpm build:watch",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest watch",
+    "test:ui": "vitest --ui",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "type-check": "tsc --noEmit",
-    "clean": "rimraf dist"
+    "type-check:watch": "tsc --noEmit --watch",
+    "clean": "rimraf dist coverage .turbo",
+    "clean:cache": "rimraf node_modules/.cache",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm test:run && pnpm lint && pnpm type-check"
   },
   "dependencies": {
     "@ldesign/kit": "workspace:*",

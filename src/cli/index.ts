@@ -35,7 +35,7 @@ program
 
     try {
       const manager = new DependencyManager()
-      let deps: any
+      let deps: Record<string, import('../types').DependencyInfo>
 
       if (options.type) {
         deps = await manager.getDependenciesByType(options.type)
@@ -55,7 +55,7 @@ program
         colWidths: [40, 20, 20]
       })
 
-      Object.values(deps).forEach((dep: any) => {
+      Object.values(deps).forEach((dep) => {
         table.push([dep.name, dep.version, dep.type])
       })
 
@@ -82,7 +82,7 @@ program
 
       const deps = await manager.getAllDependencies()
       const depsToCheck = Object.fromEntries(
-        Object.values(deps).map((d: any) => [d.name, d.version])
+        Object.values(deps).map((d) => [d.name, d.version])
       )
 
       let updates
@@ -400,7 +400,7 @@ program
 
       const deps = await manager.getAllDependencies()
       const depsToCheck = Object.fromEntries(
-        Object.values(deps).map((d: any) => [d.name, d.version])
+        Object.values(deps).map((d) => [d.name, d.version])
       )
 
       const outdated = await checker.checkOutdated(depsToCheck)

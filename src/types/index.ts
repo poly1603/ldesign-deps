@@ -42,12 +42,40 @@ export interface UpdateAvailable {
   changelog?: string
 }
 
+/**
+ * 文件分析详情
+ */
+export interface FileAnalysisDetail {
+  path: string
+  error: string
+  line?: number
+  column?: number
+}
+
+/**
+ * 目录分析详情
+ */
+export interface DirAnalysisDetail {
+  path: string
+  error: string
+  reason?: string
+}
+
+/**
+ * 依赖分析结果
+ */
 export interface DependencyAnalysis {
+  /** 未使用的依赖列表 */
   unused: string[]
+  /** 缺失的依赖列表 */
   missing: string[]
-  invalidFiles: Record<string, any>
-  invalidDirs: Record<string, any>
+  /** 无效文件详情 */
+  invalidFiles: Record<string, FileAnalysisDetail>
+  /** 无效目录详情 */
+  invalidDirs: Record<string, DirAnalysisDetail>
+  /** 依赖使用情况映射 */
   usingDependencies: Record<string, string[]>
+  /** 重复的依赖 */
   duplicates?: DuplicateDependency[]
 }
 
@@ -301,35 +329,78 @@ export interface WorkspaceConfig {
 
 // ============ 错误类型 ============
 
+import { DepsErrorCode, ErrorSeverity, ERROR_SEVERITY_MAP } from '../constants/error-codes'
+
+/**
+ * 依赖管理错误基类
+ */
 export class DependencyError extends Error {
+  /** 错误严重程度 */
+  public readonly severity: ErrorSeverity
+  /** 错误时间戳 */
+  public readonly timestamp: number
+  /** 是否可恢复 */
+  public readonly recoverable: boolean
+
   constructor(
     message: string,
-    public code: string,
-    public details?: any
+    public readonly code: DepsErrorCode,
+    public readonly details?: unknown,
+    recoverable = false
   ) {
     super(message)
     this.name = 'DependencyError'
+    this.severity = ERROR_SEVERITY_MAP[code]
+    this.timestamp = Date.now()
+    this.recoverable = recoverable
+
+    // 捕获堆栈跟踪
+    Error.captureStackTrace(this, this.constructor)
+  }
+
+  /**
+   * 将错误转换为 JSON 格式
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      message: this.message,
+      code: this.code,
+      severity: this.severity,
+      timestamp: this.timestamp,
+      recoverable: this.recoverable,
+      details: this.details,
+      stack: this.stack,
+    }
   }
 }
 
-export class NetworkError extends Error {
+/**
+ * 网络请求错误
+ */
+export class NetworkError extends DependencyError {
   constructor(
     message: string,
-    public url?: string,
-    public statusCode?: number
+    public readonly url?: string,
+    public readonly statusCode?: number,
+    code: DepsErrorCode = DepsErrorCode.NETWORK_REQUEST_FAILED
   ) {
-    super(message)
+    super(message, code, { url, statusCode }, true)
     this.name = 'NetworkError'
   }
 }
 
-export class ParseError extends Error {
+/**
+ * 解析错误
+ */
+export class ParseError extends DependencyError {
   constructor(
     message: string,
-    public file: string,
-    public line?: number
+    public readonly file: string,
+    public readonly line?: number,
+    code: DepsErrorCode = DepsErrorCode.PARSE_JSON_FAILED
   ) {
-    super(message)
+    super(message, code, { file, line }, false)
     this.name = 'ParseError'
   }
 }

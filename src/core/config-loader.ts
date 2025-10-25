@@ -2,9 +2,23 @@ import fs from 'fs-extra'
 import path from 'path'
 import type { DepsConfig } from '../types'
 import { ParseError } from '../types'
+import { DepsErrorCode } from '../constants'
+import { logger } from './logger'
 
 /**
  * 配置加载器 - 加载和合并配置文件
+ * 
+ * 支持多种配置源（按优先级从低到高）：
+ * 1. package.json 中的 ldesignDeps 或 deps 字段
+ * 2. .depsrc.json
+ * 3. .depsrc.js
+ * 
+ * @example
+ * ```ts
+ * const loader = new ConfigLoader()
+ * const config = await loader.loadConfig()
+ * console.log('缓存策略:', config.cache?.strategy)
+ * ```
  */
 export class ConfigLoader {
   private configCache: DepsConfig | null = null
@@ -62,9 +76,12 @@ export class ConfigLoader {
     try {
       return await fs.readJSON(configPath)
     } catch (error) {
+      logger.error(`解析 .depsrc.json 失败`, error)
       throw new ParseError(
         `解析 .depsrc.json 失败: ${error instanceof Error ? error.message : String(error)}`,
-        configPath
+        configPath,
+        undefined,
+        DepsErrorCode.PARSE_CONFIG_FAILED
       )
     }
   }
@@ -84,9 +101,12 @@ export class ConfigLoader {
       const module = await import(configPath)
       return module.default || module
     } catch (error) {
+      logger.error(`加载 .depsrc.js 失败`, error)
       throw new ParseError(
         `加载 .depsrc.js 失败: ${error instanceof Error ? error.message : String(error)}`,
-        configPath
+        configPath,
+        undefined,
+        DepsErrorCode.PARSE_CONFIG_FAILED
       )
     }
   }

@@ -2,9 +2,30 @@ import fs from 'fs-extra'
 import path from 'path'
 import os from 'os'
 import type { CacheEntry, CacheConfig, CacheStats } from '../types'
+import { logger } from './logger'
+import { DependencyError } from '../types'
+import { DepsErrorCode } from '../constants'
 
 /**
  * 智能缓存管理器 - 缓存依赖检查结果，提升性能
+ * 
+ * 支持多种缓存淘汰策略：
+ * - LRU (Least Recently Used) - 最近最少使用
+ * - LFU (Least Frequently Used) - 最不常用
+ * - FIFO (First In First Out) - 先进先出
+ * 
+ * @example
+ * ```ts
+ * const cache = new CacheManager({
+ *   enabled: true,
+ *   ttl: 3600000, // 1小时
+ *   maxSize: 1000,
+ *   strategy: 'lru'
+ * })
+ * 
+ * cache.set('key', 'value')
+ * const value = cache.get('key')
+ * ```
  */
 export class CacheManager {
   private cache: Map<string, CacheEntry> = new Map()
@@ -37,6 +58,9 @@ export class CacheManager {
 
   /**
    * 获取缓存值
+   * @param key - 缓存键
+   * @returns 缓存值，如果不存在或已过期则返回 null
+   * @template T - 缓存值的类型
    */
   get<T>(key: string): T | null {
     if (!this.config.enabled) {
@@ -71,6 +95,10 @@ export class CacheManager {
 
   /**
    * 设置缓存值
+   * @param key - 缓存键
+   * @param value - 要缓存的值
+   * @param ttl - 可选的过期时间（毫秒），不指定则使用默认配置
+   * @template T - 缓存值的类型
    */
   set<T>(key: string, value: T, ttl?: number): void {
     if (!this.config.enabled) {
@@ -95,7 +123,9 @@ export class CacheManager {
   }
 
   /**
-   * 删除缓存
+   * 删除指定的缓存项
+   * @param key - 要删除的缓存键
+   * @returns 如果删除成功返回 true，否则返回 false
    */
   delete(key: string): boolean {
     const result = this.cache.delete(key)
@@ -104,7 +134,9 @@ export class CacheManager {
   }
 
   /**
-   * 检查缓存是否存在
+   * 检查缓存是否存在且未过期
+   * @param key - 缓存键
+   * @returns 如果缓存存在且未过期返回 true，否则返回 false
    */
   has(key: string): boolean {
     if (!this.config.enabled) {
@@ -128,7 +160,7 @@ export class CacheManager {
   }
 
   /**
-   * 清空缓存
+   * 清空所有缓存并重置统计信息
    */
   clear(): void {
     this.cache.clear()
@@ -136,10 +168,12 @@ export class CacheManager {
     this.stats.hits = 0
     this.stats.misses = 0
     this.stats.hitRate = 0
+    logger.debug('缓存已清空')
   }
 
   /**
    * 获取缓存统计信息
+   * @returns 缓存统计对象的副本，包含命中率、大小等信息
    */
   getStats(): CacheStats {
     return { ...this.stats }
@@ -147,6 +181,7 @@ export class CacheManager {
 
   /**
    * 持久化缓存到磁盘
+   * @throws {DependencyError} 当持久化失败且配置要求时抛出
    */
   async persist(): Promise<void> {
     if (!this.config.enabled) {
@@ -156,14 +191,22 @@ export class CacheManager {
     try {
       const data = Array.from(this.cache.entries())
       await fs.writeJSON(this.persistPath, data, { spaces: 2 })
+      logger.debug(`缓存已持久化到 ${this.persistPath}`)
     } catch (error) {
-      // 持久化失败不影响主流程
-      console.warn('缓存持久化失败:', error)
+      // 持久化失败不影响主流程，但记录警告
+      logger.warn('缓存持久化失败', error)
+      throw new DependencyError(
+        `缓存持久化失败: ${error instanceof Error ? error.message : String(error)}`,
+        DepsErrorCode.CACHE_PERSIST_FAILED,
+        { path: this.persistPath, error },
+        true // 可恢复错误
+      )
     }
   }
 
   /**
    * 从磁盘加载缓存
+   * @throws {DependencyError} 当加载失败且配置要求时抛出
    */
   async load(): Promise<void> {
     if (!this.config.enabled) {
@@ -178,11 +221,18 @@ export class CacheManager {
         // 清理过期缓存
         this.cleanExpired()
         this.stats.size = this.cache.size
+        logger.debug(`从 ${this.persistPath} 加载了 ${this.cache.size} 条缓存`)
       }
     } catch (error) {
-      // 加载失败不影响主流程，清空缓存
+      // 加载失败不影响主流程，清空缓存并记录警告
       this.cache.clear()
-      console.warn('缓存加载失败:', error)
+      logger.warn('缓存加载失败，已清空缓存', error)
+      throw new DependencyError(
+        `缓存加载失败: ${error instanceof Error ? error.message : String(error)}`,
+        DepsErrorCode.CACHE_READ_FAILED,
+        { path: this.persistPath, error },
+        true // 可恢复错误
+      )
     }
   }
 
@@ -276,7 +326,19 @@ export class CacheManager {
   }
 
   /**
-   * 生成缓存键
+   * 生成缓存键，将多个部分用冒号连接
+   * @param parts - 缓存键的组成部分
+   * @returns 生成的缓存键字符串
+   * @example
+   * ```ts
+   * // 为包版本信息生成缓存键
+   * const key = CacheManager.generateKey('npm', 'react', '18.0.0')
+   * // 返回: 'npm:react:18.0.0'
+   * 
+   * // 为依赖检查生成缓存键
+   * const checkKey = CacheManager.generateKey('check', 'vue', '3.3.4')
+   * // 返回: 'check:vue:3.3.4'
+   * ```
    */
   static generateKey(...parts: string[]): string {
     return parts.join(':')

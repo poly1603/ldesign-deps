@@ -11,9 +11,30 @@ import type {
 } from '../types'
 import { DependencyError } from '../types'
 import { DependencyManager } from './dependency-manager'
+import { DepsErrorCode } from '../constants'
+import { logger } from './logger'
 
 /**
  * 安全审计器 - 扫描漏洞、检查许可证、评估依赖安全性
+ * 
+ * 功能特性：
+ * - 漏洞扫描（基于 npm audit）
+ * - 许可证检查
+ * - 安全评分计算
+ * - 可配置的审计级别和白/黑名单
+ * 
+ * @example
+ * ```ts
+ * const auditor = new SecurityAuditor(process.cwd(), {
+ *   auditLevel: 'high',
+ *   checkLicenses: true,
+ *   allowedLicenses: ['MIT', 'Apache-2.0'],
+ *   blockedLicenses: ['GPL-3.0']
+ * })
+ * 
+ * const result = await auditor.audit()
+ * console.log(`安全评分: ${result.securityScore.overall}/100`)
+ * ```
  */
 export class SecurityAuditor {
   private config: SecurityConfig
@@ -55,9 +76,10 @@ export class SecurityAuditor {
         timestamp: Date.now()
       }
     } catch (error) {
+      logger.error('安全审计失败', error)
       throw new DependencyError(
         `安全审计失败: ${error instanceof Error ? error.message : String(error)}`,
-        'AUDIT_FAILED',
+        DepsErrorCode.AUDIT_FAILED,
         error
       )
     }
@@ -74,7 +96,7 @@ export class SecurityAuditor {
       const npmVulns = await this.runNpmAudit()
       vulnerabilities.push(...npmVulns)
     } catch (error) {
-      console.warn('npm audit 执行失败:', error)
+      logger.warn('npm audit 执行失败', error)
     }
 
     // 过滤忽略的漏洞
@@ -97,7 +119,7 @@ export class SecurityAuditor {
       const vulnerabilities: VulnerabilityInfo[] = []
 
       if (auditResult.vulnerabilities) {
-        for (const [pkgName, vuln] of Object.entries<any>(auditResult.vulnerabilities)) {
+        for (const [pkgName, vuln] of Object.entries(auditResult.vulnerabilities) as [string, any][]) {
           const severity = this.mapSeverity(vuln.severity)
 
           // 根据配置的审计级别过滤
@@ -122,9 +144,10 @@ export class SecurityAuditor {
 
       return vulnerabilities
     } catch (error) {
+      logger.error('npm audit 执行失败', error)
       throw new DependencyError(
         'npm audit 执行失败',
-        'NPM_AUDIT_FAILED',
+        DepsErrorCode.NPM_AUDIT_FAILED,
         error
       )
     }
@@ -158,16 +181,17 @@ export class SecurityAuditor {
             warning: compatible ? undefined : `许可证 ${licenseStr} 可能不兼容`
           })
         } catch (error) {
-          // 无法获取许可证信息时跳过
-          console.warn(`无法获取 ${name} 的许可证信息`)
+          // 无法获取许可证信息时跳过并记录
+          logger.warn(`无法获取 ${name} 的许可证信息`, error)
         }
       }
 
       return licenses
     } catch (error) {
+      logger.error('许可证检查失败', error)
       throw new DependencyError(
         '许可证检查失败',
-        'LICENSE_CHECK_FAILED',
+        DepsErrorCode.LICENSE_CHECK_FAILED,
         error
       )
     }

@@ -48,29 +48,38 @@ export class Logger {
 
   /**
    * Debug 日志
+   * @param message - 日志消息
+   * @param args - 附加参数
    */
-  debug(message: string, ...args: any[]): void {
+  debug(message: string, ...args: unknown[]): void {
     this.log(LogLevel.DEBUG, message, ...args)
   }
 
   /**
    * Info 日志
+   * @param message - 日志消息
+   * @param args - 附加参数
    */
-  info(message: string, ...args: any[]): void {
+  info(message: string, ...args: unknown[]): void {
     this.log(LogLevel.INFO, message, ...args)
   }
 
   /**
    * Warning 日志
+   * @param message - 日志消息
+   * @param args - 附加参数
    */
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     this.log(LogLevel.WARN, message, ...args)
   }
 
   /**
    * Error 日志
+   * @param message - 日志消息
+   * @param error - 错误对象
+   * @param args - 附加参数
    */
-  error(message: string, error?: Error | any, ...args: any[]): void {
+  error(message: string, error?: Error | unknown, ...args: unknown[]): void {
     if (error) {
       this.log(LogLevel.ERROR, message, error, ...args)
     } else {
@@ -80,8 +89,11 @@ export class Logger {
 
   /**
    * 核心日志方法
+   * @param level - 日志级别
+   * @param message - 日志消息
+   * @param args - 附加参数
    */
-  private log(level: LogLevel, message: string, ...args: any[]): void {
+  private log(level: LogLevel, message: string, ...args: unknown[]): void {
     if (level < this.config.level) {
       return
     }
@@ -101,8 +113,12 @@ export class Logger {
 
   /**
    * 格式化日志消息
+   * @param level - 日志级别
+   * @param message - 日志消息
+   * @param args - 附加参数
+   * @returns 格式化后的日志字符串
    */
-  private formatMessage(level: LogLevel, message: string, ...args: any[]): string {
+  private formatMessage(level: LogLevel, message: string, ...args: unknown[]): string {
     const parts: string[] = []
 
     // 时间戳
@@ -234,13 +250,22 @@ export class Logger {
   }
 
   /**
-   * 创建子 Logger
+   * 创建子 Logger，添加前缀以区分不同模块的日志
+   * @param prefix - 日志前缀标识
+   * @returns 新的 Logger 实例，所有日志都会添加指定前缀
+   * @example
+   * ```ts
+   * const mainLogger = new Logger()
+   * const moduleLogger = mainLogger.child('MyModule')
+   * moduleLogger.info('Hello') // 输出: [MyModule] Hello
+   * ```
    */
   child(prefix: string): Logger {
     const childLogger = new Logger(this.config)
     const originalLog = childLogger.log.bind(childLogger)
 
-    childLogger.log = (level: LogLevel, message: string, ...args: any[]) => {
+    // 重写 log 方法，添加前缀
+    childLogger.log = (level: LogLevel, message: string, ...args: unknown[]) => {
       originalLog(level, `[${prefix}] ${message}`, ...args)
     }
 

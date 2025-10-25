@@ -5,7 +5,9 @@ export default defineConfig({
     'src/index.ts',
     'src/cli/index.ts',
     'src/core/index.ts',
-    'src/types/index.ts'
+    'src/types/index.ts',
+    'src/constants/index.ts',
+    'src/helpers/index.ts'
   ],
   format: ['esm', 'cjs'],
   dts: true,
@@ -20,7 +22,8 @@ export default defineConfig({
     'semver',
     'depcheck',
     'p-limit',
-    'cli-progress'
+    'cli-progress',
+    'fast-glob'
   ]
 })
 
