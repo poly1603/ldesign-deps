@@ -405,3 +405,431 @@ export class ParseError extends DependencyError {
   }
 }
 
+// ============ 健康度评分相关 ============
+
+/**
+ * 依赖健康度评分结果
+ */
+export interface DependencyHealthScore {
+  /** 包名 */
+  packageName: string
+  /** 版本 */
+  version: string
+  /** 综合评分 (0-100) */
+  overall: number
+  /** 维护活跃度评分 (0-100) */
+  maintenanceScore: number
+  /** 社区热度评分 (0-100) */
+  popularityScore: number
+  /** 质量评分 (0-100) */
+  qualityScore: number
+  /** 安全评分 (0-100) */
+  securityScore: number
+  /** 依赖链深度 */
+  dependencyDepth: number
+  /** 详细信息 */
+  details: HealthScoreDetails
+  /** 建议 */
+  recommendations: string[]
+  /** 评分等级 */
+  grade: 'A' | 'B' | 'C' | 'D' | 'F'
+}
+
+/**
+ * 健康度评分详细信息
+ */
+export interface HealthScoreDetails {
+  /** 最后发布时间 */
+  lastPublish?: Date
+  /** 最后提交时间 */
+  lastCommit?: Date
+  /** GitHub stars */
+  stars?: number
+  /** GitHub forks */
+  forks?: number
+  /** npm 每周下载量 */
+  weeklyDownloads?: number
+  /** 开放的 issues 数量 */
+  openIssues?: number
+  /** 依赖项数量 */
+  dependenciesCount?: number
+  /** 已知漏洞数量 */
+  vulnerabilities?: number
+  /** 许可证类型 */
+  license?: string
+  /** 是否有 TypeScript 定义 */
+  hasTypes?: boolean
+  /** 是否废弃 */
+  deprecated?: boolean
+  /** 废弃原因 */
+  deprecationReason?: string
+}
+
+/**
+ * 批量健康度评分结果
+ */
+export interface BatchHealthScoreResult {
+  scores: DependencyHealthScore[]
+  summary: HealthScoreSummary
+  timestamp: number
+}
+
+export interface HealthScoreSummary {
+  total: number
+  averageScore: number
+  gradesDistribution: Record<string, number>
+  criticalIssues: number
+  deprecatedCount: number
+  outdatedCount: number
+}
+
+// ============ 性能监控相关 ============
+
+/**
+ * 性能监控结果
+ */
+export interface PerformanceMetrics {
+  /** 安装时间指标 */
+  installMetrics: InstallMetrics
+  /** Bundle 大小指标 */
+  bundleMetrics: BundleMetrics
+  /** 依赖统计 */
+  dependencyStats: DependencyStats
+  /** 构建性能影响 */
+  buildImpact?: BuildImpact
+  /** 时间戳 */
+  timestamp: number
+}
+
+export interface InstallMetrics {
+  /** 总安装时间 (ms) */
+  totalTime: number
+  /** 下载时间 (ms) */
+  downloadTime: number
+  /** 解析时间 (ms) */
+  resolveTime: number
+  /** 最慢的依赖 */
+  slowestDependencies: Array<{ name: string; time: number }>
+}
+
+export interface BundleMetrics {
+  /** 总大小 (bytes) */
+  totalSize: number
+  /** 压缩后大小 (bytes) */
+  gzipSize: number
+  /** 各依赖大小分布 */
+  sizeByDependency: Record<string, number>
+  /** 最大的依赖 */
+  largestDependencies: Array<{ name: string; size: number }>
+  /** Tree-shaking 效果 */
+  treeShakingImpact?: number
+}
+
+export interface DependencyStats {
+  /** 直接依赖数量 */
+  directCount: number
+  /** 间接依赖数量 */
+  transitiveCount: number
+  /** 总依赖数量 */
+  totalCount: number
+  /** 平均依赖深度 */
+  averageDepth: number
+  /** 最大依赖深度 */
+  maxDepth: number
+}
+
+export interface BuildImpact {
+  /** 构建时间增量 (ms) */
+  buildTimeDelta: number
+  /** 内存使用增量 (MB) */
+  memoryDelta: number
+  /** 影响程度 */
+  impactLevel: 'low' | 'medium' | 'high'
+}
+
+// ============ 自动更新相关 ============
+
+/**
+ * 自动更新配置
+ */
+export interface AutoUpdateConfig {
+  /** 是否启用 */
+  enabled: boolean
+  /** 更新策略 */
+  strategy: 'conservative' | 'moderate' | 'aggressive'
+  /** 允许的更新类型 */
+  allowedUpdateTypes: Array<'major' | 'minor' | 'patch'>
+  /** 排除的包 */
+  excludePackages: string[]
+  /** 仅包含的包 */
+  includePackages?: string[]
+  /** 是否创建 PR */
+  createPR: boolean
+  /** PR 配置 */
+  prConfig?: PRConfig
+  /** 测试配置 */
+  testConfig?: TestConfig
+  /** 通知配置 */
+  notificationConfig?: NotificationConfig
+  /** 调度配置 */
+  schedule?: ScheduleConfig
+}
+
+export interface PRConfig {
+  /** PR 标题模板 */
+  titleTemplate: string
+  /** PR 描述模板 */
+  bodyTemplate: string
+  /** 目标分支 */
+  targetBranch: string
+  /** 标签 */
+  labels: string[]
+  /** 审核者 */
+  reviewers: string[]
+  /** 是否自动合并 */
+  autoMerge: boolean
+}
+
+export interface TestConfig {
+  /** 测试命令 */
+  command: string
+  /** 超时时间 (ms) */
+  timeout: number
+  /** 是否必需 */
+  required: boolean
+}
+
+export interface ScheduleConfig {
+  /** 检查频率 */
+  frequency: 'daily' | 'weekly' | 'monthly'
+  /** 具体时间 (cron 表达式) */
+  cron?: string
+  /** 时区 */
+  timezone?: string
+}
+
+/**
+ * 自动更新结果
+ */
+export interface AutoUpdateResult {
+  /** 更新的包列表 */
+  updatedPackages: Array<{
+    name: string
+    oldVersion: string
+    newVersion: string
+    updateType: 'major' | 'minor' | 'patch'
+  }>
+  /** PR 信息 */
+  pullRequest?: {
+    url: string
+    number: number
+  }
+  /** 测试结果 */
+  testResults?: {
+    passed: boolean
+    output: string
+  }
+  /** 是否成功 */
+  success: boolean
+  /** 错误信息 */
+  errors: string[]
+  /** 时间戳 */
+  timestamp: number
+}
+
+// ============ 通知相关 ============
+
+/**
+ * 通知配置
+ */
+export interface NotificationConfig {
+  /** 通知渠道 */
+  channels: NotificationChannel[]
+  /** 通知级别 */
+  level: 'all' | 'warning' | 'error' | 'critical'
+  /** 通知事件 */
+  events: NotificationEvent[]
+}
+
+export type NotificationChannel = 'email' | 'slack' | 'dingtalk' | 'wecom' | 'webhook'
+
+export type NotificationEvent = 'vulnerability' | 'update-available' | 'auto-update' | 'health-check' | 'dependency-added' | 'dependency-removed'
+
+/**
+ * 通知消息
+ */
+export interface NotificationMessage {
+  /** 标题 */
+  title: string
+  /** 内容 */
+  content: string
+  /** 级别 */
+  level: 'info' | 'warning' | 'error' | 'critical'
+  /** 事件类型 */
+  event: NotificationEvent
+  /** 相关数据 */
+  data?: any
+  /** 时间戳 */
+  timestamp: number
+}
+
+/**
+ * 通知结果
+ */
+export interface NotificationResult {
+  /** 渠道 */
+  channel: NotificationChannel
+  /** 是否成功 */
+  success: boolean
+  /** 错误信息 */
+  error?: string
+  /** 时间戳 */
+  timestamp: number
+}
+
+// ============ 替代方案相关 ============
+
+/**
+ * 依赖替代方案
+ */
+export interface DependencyAlternative {
+  /** 原包名 */
+  originalPackage: string
+  /** 替代包列表 */
+  alternatives: AlternativePackage[]
+  /** 原包状态 */
+  status: 'deprecated' | 'unmaintained' | 'vulnerable' | 'heavy' | 'outdated'
+  /** 推荐理由 */
+  reason: string
+}
+
+export interface AlternativePackage {
+  /** 包名 */
+  name: string
+  /** 版本 */
+  version: string
+  /** 相似度评分 (0-100) */
+  similarityScore: number
+  /** 优势 */
+  advantages: string[]
+  /** 劣势 */
+  disadvantages: string[]
+  /** 迁移难度 */
+  migrationDifficulty: 'easy' | 'medium' | 'hard'
+  /** 迁移成本评估 */
+  migrationCost: MigrationCost
+  /** 健康度评分 */
+  healthScore: number
+}
+
+export interface MigrationCost {
+  /** 预估工时 (小时) */
+  estimatedHours: number
+  /** 影响的文件数 */
+  affectedFiles: number
+  /** API 变更数量 */
+  apiChanges: number
+  /** 风险等级 */
+  riskLevel: 'low' | 'medium' | 'high'
+}
+
+// ============ 成本分析相关 ============
+
+/**
+ * 依赖成本分析结果
+ */
+export interface DependencyCostAnalysis {
+  /** 总体成本 */
+  overallCost: OverallCost
+  /** 按包分类的成本 */
+  costByPackage: CostByPackage[]
+  /** 成本趋势 */
+  trend?: CostTrend
+  /** 时间戳 */
+  timestamp: number
+}
+
+export interface OverallCost {
+  /** 总依赖数 */
+  totalDependencies: number
+  /** 总安装时间 (s) */
+  totalInstallTime: number
+  /** 总磁盘空间 (MB) */
+  totalDiskSpace: number
+  /** 总下载大小 (MB) */
+  totalDownloadSize: number
+  /** 估算的 CI/CD 时间成本 (分钟/次) */
+  cicdTimeCost: number
+  /** 估算的月度成本 (CI/CD运行时长) */
+  monthlyCost?: number
+}
+
+export interface CostByPackage {
+  /** 包名 */
+  name: string
+  /** 安装时间 (ms) */
+  installTime: number
+  /** 磁盘空间 (bytes) */
+  diskSpace: number
+  /** 下载大小 (bytes) */
+  downloadSize: number
+  /** 间接依赖数量 */
+  transitiveDependencies: number
+  /** 成本占比 (%) */
+  costPercentage: number
+}
+
+export interface CostTrend {
+  /** 与上次对比 */
+  comparison: {
+    dependenciesChange: number
+    installTimeChange: number
+    diskSpaceChange: number
+  }
+  /** 历史数据点 */
+  history: Array<{
+    timestamp: number
+    totalDependencies: number
+    totalInstallTime: number
+    totalDiskSpace: number
+  }>
+}
+
+// ============ 文档生成相关 ============
+
+/**
+ * 文档生成配置
+ */
+export interface DocGenerationConfig {
+  /** 输出格式 */
+  format: 'markdown' | 'html' | 'pdf' | 'json'
+  /** 输出路径 */
+  output: string
+  /** 包含的章节 */
+  sections: DocSection[]
+  /** 模板路径 */
+  template?: string
+  /** 是否包含图表 */
+  includeCharts: boolean
+}
+
+export type DocSection = 'overview' | 'dependencies' | 'licenses' | 'security' | 'performance' | 'health' | 'changelog' | 'architecture'
+
+/**
+ * 生成的文档内容
+ */
+export interface GeneratedDoc {
+  /** 标题 */
+  title: string
+  /** 内容 */
+  content: string
+  /** 格式 */
+  format: 'markdown' | 'html' | 'pdf' | 'json'
+  /** 元数据 */
+  metadata: {
+    generatedAt: number
+    version: string
+    totalPages?: number
+  }
+}
+

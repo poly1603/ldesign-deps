@@ -12,7 +12,11 @@ import {
   PackageUpdater,
   SecurityAuditor,
   DependencyVisualizer,
-  WorkspaceManager
+  WorkspaceManager,
+  DependencyHealthScorer,
+  PerformanceMonitor,
+  DependencyCostAnalyzer,
+  DependencyAlternativesFinder
 } from '../core'
 import { InteractiveCLI } from './interactive'
 
@@ -584,6 +588,166 @@ program
       }
     } catch (error) {
       spinner.fail(chalk.red('重新安装失败'))
+      console.error(error)
+      process.exit(1)
+    }
+  })
+
+// ============ 新增功能命令 ============
+
+program
+  .command('health [package]')
+  .description('评估依赖健康度')
+  .option('--all', '评估所有依赖')
+  .option('--json', '输出 JSON 格式')
+  .action(async (packageName, options) => {
+    const spinner = ora('正在评估依赖健康度...').start()
+
+    try {
+      const scorer = new DependencyHealthScorer()
+
+      if (options.all || !packageName) {
+        const manager = new DependencyManager()
+        const deps = await manager.getAllDependencies()
+        const packages = Object.values(deps).map(d => ({
+          name: d.name,
+          version: d.version
+        }))
+
+        const progressBar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic)
+        progressBar.start(packages.length, 0)
+
+        const result = await scorer.scorePackages(packages, (progress) => {
+          progressBar.update(progress.current)
+        })
+
+        progressBar.stop()
+        spinner.stop()
+
+        if (options.json) {
+          console.log(JSON.stringify(result, null, 2))
+        } else {
+          console.log(scorer.generateReport(result))
+        }
+      } else {
+        const score = await scorer.scorePackage(packageName)
+        spinner.stop()
+
+        if (options.json) {
+          console.log(JSON.stringify(score, null, 2))
+        } else {
+          console.log(chalk.bold(`\n${score.packageName}@${score.version} 健康度报告\n`))
+          console.log(`总评分: ${score.overall}/100 [${score.grade}]`)
+          console.log(`维护活跃度: ${score.maintenanceScore}/100`)
+          console.log(`社区热度: ${score.popularityScore}/100`)
+          console.log(`质量评分: ${score.qualityScore}/100`)
+          console.log(`安全评分: ${score.securityScore}/100`)
+          console.log(`\n建议:`)
+          score.recommendations.forEach(rec => {
+            console.log(`  ${rec}`)
+          })
+        }
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('评估失败'))
+      console.error(error)
+      process.exit(1)
+    }
+  })
+
+program
+  .command('performance')
+  .description('性能监控和分析')
+  .option('--no-bundle', '不分析 Bundle 大小')
+  .option('--build', '包含构建影响分析')
+  .option('--json', '输出 JSON 格式')
+  .action(async (options) => {
+    const spinner = ora('正在收集性能指标...').start()
+
+    try {
+      const monitor = new PerformanceMonitor(process.cwd(), {
+        includeBundleAnalysis: options.bundle !== false,
+        includeBuildImpact: options.build
+      })
+
+      const metrics = await monitor.collectMetrics()
+      spinner.stop()
+
+      if (options.json) {
+        console.log(JSON.stringify(metrics, null, 2))
+      } else {
+        console.log(monitor.generateReport(metrics))
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('性能分析失败'))
+      console.error(error)
+      process.exit(1)
+    }
+  })
+
+program
+  .command('cost')
+  .description('成本分析')
+  .option('--trend', '包含趋势分析')
+  .option('--json', '输出 JSON 格式')
+  .action(async (options) => {
+    const spinner = ora('正在分析依赖成本...').start()
+
+    try {
+      const analyzer = new DependencyCostAnalyzer(process.cwd(), {
+        includeTrend: options.trend
+      })
+
+      const analysis = await analyzer.analyze()
+      spinner.stop()
+
+      if (options.json) {
+        console.log(JSON.stringify(analysis, null, 2))
+      } else {
+        console.log(analyzer.generateReport(analysis))
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('成本分析失败'))
+      console.error(error)
+      process.exit(1)
+    }
+  })
+
+program
+  .command('alternatives [package]')
+  .description('查找依赖替代方案')
+  .option('--all', '检查所有依赖')
+  .option('--json', '输出 JSON 格式')
+  .action(async (packageName, options) => {
+    const spinner = ora('正在查找替代方案...').start()
+
+    try {
+      const finder = new DependencyAlternativesFinder()
+
+      let results
+
+      if (options.all) {
+        const manager = new DependencyManager()
+        const deps = await manager.getAllDependencies()
+        const packageNames = Object.keys(deps)
+        results = await finder.findMultipleAlternatives(packageNames)
+        spinner.stop()
+      } else if (packageName) {
+        const result = await finder.findAlternatives(packageName)
+        spinner.stop()
+        results = result ? [result] : []
+      } else {
+        spinner.fail(chalk.red('请指定包名或使用 --all 选项'))
+        process.exit(1)
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify(results, null, 2))
+      } else {
+        console.log(finder.generateReport(results))
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('查找替代方案失败'))
       console.error(error)
       process.exit(1)
     }

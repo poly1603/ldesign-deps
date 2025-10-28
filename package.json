@@ -1,7 +1,7 @@
 {
   "name": "@ldesign/deps",
-  "version": "0.2.0",
-  "description": "LDesign 企业级依赖管理工具 - 依赖分析、安全审计、版本管理、历史追踪、Monorepo 支持",
+  "version": "0.4.0",
+  "description": "LDesign 企业级依赖管理工具 - 依赖分析、安全审计、版本管理、历史追踪、健康度评分、性能监控、成本分析、替代方案、Monorepo 支持",
   "keywords": [
     "ldesign",
     "dependencies",
@@ -77,6 +77,9 @@
     "type-check:watch": "tsc --noEmit --watch",
     "clean": "rimraf dist coverage .turbo",
     "clean:cache": "rimraf node_modules/.cache",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm test:run && pnpm lint && pnpm type-check"
   },
@@ -107,7 +110,8 @@
     "typescript": "^5.7.3",
     "tsup": "^8.0.0",
     "vitest": "^1.6.1",
-    "rimraf": "^5.0.5"
+    "rimraf": "^5.0.5",
+    "vitepress": "^1.2.0"
   },
   "bin": {
     "ldesign-deps": "./bin/cli.js",

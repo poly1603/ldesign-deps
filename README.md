@@ -1,6 +1,6 @@
 # @ldesign/deps
 
-> 🚀 企业级依赖管理工具 - 依赖分析、安全审计、版本管理、历史追踪、Monorepo 支持
+> 🚀 企业级依赖管理工具 - 依赖分析、安全审计、版本管理、历史追踪、健康度评分、性能监控、通知告警、Monorepo 支持
 
 [![npm version](https://img.shields.io/npm/v/@ldesign/deps.svg)](https://www.npmjs.com/package/@ldesign/deps)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +9,7 @@
 [![Code Quality](https://img.shields.io/badge/quality-enterprise-blue)](./PROJECT_COMPLETION_REPORT.md)
 [![TypeScript](https://img.shields.io/badge/typescript-100%25-blue)](./tsconfig.json)
 
-**✨ v0.2.0 重大更新！企业级质量、性能提升50%、新增核心功能！**
+**✨ v0.3.0 重大更新！新增健康度评分、性能监控、通知系统等高级功能！**
 
 ## ✨ 特性
 
@@ -21,9 +21,11 @@
 - 🔐 **安全审计** - 漏洞扫描、许可证检查、安全评分
 - 🌳 **依赖可视化** - 依赖树、循环依赖检测、多格式导出
 - 🏢 **Monorepo 支持** - 工作区扫描、跨包依赖分析、版本同步
-- 🔒 **依赖锁定** - 锁定关键依赖版本，防止意外更新 ✨ 新功能
-- 📜 **历史追踪** - 记录所有依赖变更，支持回滚和审计 ✨ 新功能
-- ⚡ **性能优化** - 智能缓存、并行处理、增量分析（性能提升50%）
+- 🔒 **依赖锁定** - 锁定关键依赖版本，防止意外更新
+- 📜 **历史追踪** - 记录所有依赖变更，支持回滚和审计
+- 💚 **健康度评分** - 维护活跃度、社区热度、质量评分 ✨ v0.3.0 新增
+- ⚡ **性能监控** - 安装时间、Bundle 大小、构建影响分析 ✨ v0.3.0 新增
+- 🔔 **通知告警** - 支持 Slack/钉钉/企业微信等多渠道通知 ✨ v0.3.0 新增
 - 🎨 **交互式 CLI** - 友好的交互界面，轻松管理依赖
 
 ### 技术亮点
@@ -370,6 +372,99 @@ ldeps history --export history.json
 ldeps history --stats
 ```
 
+### ✨ 新增命令 (v0.3.0)
+
+#### `ldeps health [package]`
+
+评估依赖健康度
+
+```bash
+# 评估单个依赖
+ldeps health react
+
+# 评估所有依赖
+ldeps health --all
+
+# 输出 JSON 格式
+ldeps health --all --json
+```
+
+**功能特点:**
+- 维护活跃度评分（最后发布/提交时间）
+- 社区热度评分（GitHub stars、npm 下载量）
+- 质量评分（TypeScript 支持、许可证、依赖数量）
+- 安全评分（漏洞数量、废弃状态）
+- A-F 等级评定和智能建议
+
+#### `ldeps performance`
+
+性能监控和分析
+
+```bash
+# 基本用法
+ldeps performance
+
+# 不分析 Bundle 大小
+ldeps performance --no-bundle
+
+# 包含构建影响分析
+ldeps performance --build
+
+# JSON 输出
+ldeps performance --json
+```
+
+**功能特点:**
+- 安装时间分析（总时间、下载时间、解析时间）
+- Bundle 大小分析（总大小、Gzip 后大小、各依赖分布）
+- 依赖统计（直接/间接依赖数、依赖深度）
+- 构建影响（构建时间、内存使用）
+
+#### `ldeps cost`
+
+成本分析
+
+```bash
+# 基本用法
+ldeps cost
+
+# 包含趋势分析
+ldeps cost --trend
+
+# JSON 输出
+ldeps cost --json
+```
+
+**功能特点:**
+- 总体成本（依赖数、安装时间、磁盘空间、下载大小）
+- CI/CD 成本估算（单次和月度成本）
+- 按包分类的成本（Top 10 最贵的依赖）
+- 成本变化趋势（与上次对比）
+- 智能优化建议
+
+#### `ldeps alternatives [package]`
+
+查找依赖替代方案
+
+```bash
+# 查找单个包的替代方案
+ldeps alternatives moment
+
+# 检查所有依赖
+ldeps alternatives --all
+
+# JSON 输出
+ldeps alternatives --json
+```
+
+**功能特点:**
+- 自动检测废弃/不维护/过时/超大包
+- 预定义常见替代方案（moment → dayjs, lodash → ramda 等）
+- 相似度评分（基于关键词、描述、依赖）
+- 优劣势分析（体积、依赖数、TypeScript 支持）
+- 迁移难度和成本估算
+- 健康度评分集成
+
 ## 🎨 API 文档
 
 ### DependencyManager
@@ -714,6 +809,108 @@ console.log(report)
 await tracker.exportHistory('./history.json', { format: 'json' })
 await tracker.exportHistory('./history.csv', { format: 'csv' })
 ```
+
+### ✨ DependencyHealthScorer (v0.3.0 新增)
+
+依赖健康度评分器，评估依赖质量。
+
+```typescript
+import { DependencyHealthScorer } from '@ldesign/deps'
+
+const scorer = new DependencyHealthScorer(process.cwd(), {
+  checkGitHub: true,
+  githubToken: process.env.GITHUB_TOKEN,
+  useCache: true
+})
+
+// 评估单个依赖
+const score = await scorer.scorePackage('react', '18.2.0')
+console.log(`总评分: ${score.overall}/100 [${score.grade}]`)
+console.log(`维护活跃度: ${score.maintenanceScore}`)
+console.log(`社区热度: ${score.popularityScore}`)
+console.log(`质量评分: ${score.qualityScore}`)
+console.log(`安全评分: ${score.securityScore}`)
+
+// 批量评估
+const packages = [
+  { name: 'react', version: '18.2.0' },
+  { name: 'vue', version: '3.3.4' }
+]
+
+const result = await scorer.scorePackages(packages, (progress) => {
+  console.log(`进度: ${progress.percentage}%`)
+})
+
+console.log(`平均评分: ${result.summary.averageScore}`)
+console.log(`关键问题: ${result.summary.criticalIssues}`)
+console.log(`废弃包: ${result.summary.deprecatedCount}`)
+
+// 生成报告
+const report = scorer.generateReport(result)
+console.log(report)
+```
+
+### ✨ PerformanceMonitor (v0.3.0 新增)
+
+性能监控器，分析依赖对性能的影响。
+
+```typescript
+import { PerformanceMonitor } from '@ldesign/deps'
+
+const monitor = new PerformanceMonitor(process.cwd(), {
+  includeBundleAnalysis: true,
+  includeBuildImpact: false,
+  installTimeout: 300000
+})
+
+// 收集性能指标
+const metrics = await monitor.collectMetrics()
+
+console.log(`安装时间: ${(metrics.installMetrics.totalTime / 1000).toFixed(2)}s`)
+console.log(`Bundle 大小: ${(metrics.bundleMetrics.totalSize / 1024 / 1024).toFixed(2)} MB`)
+console.log(`直接依赖: ${metrics.dependencyStats.directCount}`)
+console.log(`间接依赖: ${metrics.dependencyStats.transitiveCount}`)
+
+// 生成报告
+const report = monitor.generateReport(metrics)
+console.log(report)
+```
+
+### ✨ NotificationManager (v0.3.0 新增)
+
+通知管理器，支持多渠道通知。
+
+```typescript
+import { NotificationManager } from '@ldesign/deps'
+
+const notifier = new NotificationManager({
+  channels: ['slack', 'dingtalk'],
+  level: 'warning',
+  events: ['vulnerability', 'update-available']
+})
+
+// 发送通知
+const results = await notifier.notify({
+  title: '发现安全漏洞',
+  content: '包 express 存在高危漏洞，请尽快更新',
+  level: 'critical',
+  event: 'vulnerability',
+  data: { package: 'express', severity: 'high' },
+  timestamp: Date.now()
+})
+
+// 检查通知结果
+results.forEach(result => {
+  console.log(`${result.channel}: ${result.success ? '成功' : '失败'}`)
+})
+```
+
+**支持的通知渠道：**
+- Slack（配置 `SLACK_WEBHOOK_URL`）
+- 钉钉（配置 `DINGTALK_WEBHOOK_URL`）
+- 企业微信（配置 `WECOM_WEBHOOK_URL`）
+- 自定义 Webhook（配置 `CUSTOM_WEBHOOK_URL`）
+- 邮件（待实现）
 
 ## ⚙️ 配置
 
