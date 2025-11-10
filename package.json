@@ -79,9 +79,7 @@
     "clean:cache": "rimraf node_modules/.cache",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs",
-    "prepack": "pnpm build",
-    "prepublishOnly": "pnpm test:run && pnpm lint && pnpm type-check"
+    "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
     "@ldesign/kit": "workspace:*",
@@ -121,5 +119,3 @@
     "node": ">=16.0.0"
   }
 }
-
-
